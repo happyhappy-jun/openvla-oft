@@ -40,7 +40,9 @@ def make_dataset_from_rlds(
     name: str,
     data_dir: str,
     *,
-    train: bool,
+    train: bool = True,
+    # DEBUG: load partial dataset
+    split: str = None,
     standardize_fn: Optional[Callable[[dict], dict]] = None,
     shuffle: bool = True,
     image_obs_keys: Dict[str, Optional[str]] = {},
@@ -231,7 +233,9 @@ def make_dataset_from_rlds(
         dataset_statistics["action"]["mask"] = np.array(action_normalization_mask)
 
     # construct the dataset
-    split = "train" if train else "val"
+    if split is None:
+        print("no split")
+        split = "train" if train else "val"
 
     dataset = dl.DLataset.from_rlds(builder, split=split, shuffle=shuffle, num_parallel_reads=num_parallel_reads)
 
@@ -487,6 +491,7 @@ def make_interleaved_dataset(
         traj_read_threads: total number of parallel read workers for trajectory transforms, distributed across
             datasets according to their sampling weights. If None, defaults to AUTOTUNE for every dataset.
     """
+    print(dataset_kwargs_list)
     # Default to uniform sampling (if `sample_weights` is not specified)
     if not sample_weights:
         sample_weights = [1.0] * len(dataset_kwargs_list)
@@ -571,7 +576,6 @@ def make_interleaved_dataset(
     # Apply Frame Transforms
     overwatch.info("Applying frame transforms on dataset...")
     dataset = apply_frame_transforms(dataset, **frame_transform_kwargs, train=train)
-
     # [Contract] When training VLA Policies, we let the Collator handle Batching!
     if batch_size is not None:
         dataset = dataset.batch(batch_size)

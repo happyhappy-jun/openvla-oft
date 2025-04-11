@@ -39,6 +39,7 @@ class RLDSBatchTransform:
         img = Image.fromarray(rlds_batch["observation"]["image_primary"][0])
         lang = rlds_batch["task"]["language_instruction"].decode().lower()
         actions = rlds_batch["action"]
+        language_instruction = rlds_batch["task"]["language_instruction"]
 
         # Construct Chat-based Prompt =>> Input is default query + language instruction, output are the action tokens
         prompt_builder = self.prompt_builder_fn("openvla")
@@ -73,7 +74,7 @@ class RLDSBatchTransform:
         if not self.predict_stop_token:
             labels[-1] = IGNORE_INDEX
 
-        return_dict = dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels, dataset_name=dataset_name, actions=actions)
+        return_dict = dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels, dataset_name=dataset_name, actions=actions, language_instruction=language_instruction)
 
         # Add additional inputs
         if self.use_wrist_image:
@@ -100,6 +101,8 @@ class RLDSDataset(IterableDataset):
         resize_resolution: Tuple[int, int],
         shuffle_buffer_size: int = 256_000,
         train: bool = True,
+        # DEBUG: load partial dataset
+        split: str = None,
         image_aug: bool = False,
     ) -> None:
         """Lightweight wrapper around RLDS TFDS Pipeline for use with PyTorch/OpenVLA Data Loaders."""
@@ -138,7 +141,7 @@ class RLDSDataset(IterableDataset):
                 resize_size=resize_resolution,
                 num_parallel_calls=16,                          # For CPU-intensive ops (decoding, resizing, etc.)
             ),
-            dataset_kwargs_list=per_dataset_kwargs,
+            dataset_kwargs_list= [ dataset_kwargs | {"split": split} for dataset_kwargs in per_dataset_kwargs ],
             shuffle_buffer_size=shuffle_buffer_size,
             sample_weights=weights,
             balance_weights=True,
